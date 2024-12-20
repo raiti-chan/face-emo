@@ -17,6 +17,7 @@
 			<engine:Label name="ThumbnailHeightLabel" class="Label"/>
 			<engine:SliderInt name="ThumbnailHeightSlider" class="Slider"/>
 			<engine:Toggle name="ShowClipFieldToggle"/>
+			<engine:Button name="GenerateAllGestureCombinationAnimation" class="Button" text="組み合わせ表情の生成"/>
 		</engine:VisualElement>
 	</engine:VisualElement>
 </engine:UXML>

@@ -18,6 +18,7 @@ using UniRx;
 using Suzuryg.FaceEmo.UseCase.ModifyMenu.ModifyMode;
 using Suzuryg.FaceEmo.UseCase.ModifyMenu.ModifyMode.ModifyAnimation;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Suzuryg.FaceEmo.Detail.View
 {
@@ -25,6 +26,7 @@ namespace Suzuryg.FaceEmo.Detail.View
     {
         private IAddBranchUseCase _addBranchUseCase;
         private ISetExistingAnimationUseCase _setExistingAnimationUseCase;
+        private IModifyBranchPropertiesUseCase _modifyBranchPropertiesUseCase;
 
         private IReadOnlyLocalizationSetting _localizationSetting;
         private ISubWindowProvider _subWindowProvider;
@@ -44,6 +46,7 @@ namespace Suzuryg.FaceEmo.Detail.View
         private SliderInt _thumbnailWidthSlider;
         private SliderInt _thumbnailHeightSlider;
         private Toggle _showClipFieldToggle;
+        private Button _generateAllGestureCombinationAnimationButton;
 
         private StyleColor _canAddButtonColor = Color.black;
         private StyleColor _canAddButtonBackgroundColor = Color.yellow;
@@ -55,6 +58,7 @@ namespace Suzuryg.FaceEmo.Detail.View
         public GestureTableView(
             IAddBranchUseCase addBranchUseCase,
             ISetExistingAnimationUseCase setExistingAnimationUseCase,
+            IModifyBranchPropertiesUseCase modifyBranchPropertiesUseCase,
             IReadOnlyLocalizationSetting localizationSetting,
             ISubWindowProvider subWindowProvider,
             DefaultsProviderGenerator defaultProviderGenerator,
@@ -69,6 +73,7 @@ namespace Suzuryg.FaceEmo.Detail.View
             // Usecases
             _addBranchUseCase = addBranchUseCase;
             _setExistingAnimationUseCase = setExistingAnimationUseCase;
+            _modifyBranchPropertiesUseCase = modifyBranchPropertiesUseCase;
 
             // Others
             _localizationSetting = localizationSetting;
@@ -129,7 +134,8 @@ namespace Suzuryg.FaceEmo.Detail.View
             _thumbnailWidthSlider = root.Q<SliderInt>("ThumbnailWidthSlider");
             _thumbnailHeightSlider = root.Q<SliderInt>("ThumbnailHeightSlider");
             _showClipFieldToggle = root.Q<Toggle>("ShowClipFieldToggle");
-            NullChecker.Check(_gestureTableContainer, _thumbnailWidthLabel, _thumbnailHeightLabel, _thumbnailWidthSlider, _thumbnailHeightSlider, _showClipFieldToggle);
+            _generateAllGestureCombinationAnimationButton = root.Q<Button>("GenerateAllGestureCombinationAnimation");
+            NullChecker.Check(_gestureTableContainer, _thumbnailWidthLabel, _thumbnailHeightLabel, _thumbnailWidthSlider, _thumbnailHeightSlider, _showClipFieldToggle, _generateAllGestureCombinationAnimationButton);
 
             // Add event handlers
             Observable.FromEvent(x => _gestureTableContainer.onGUIHandler += x, x => _gestureTableContainer.onGUIHandler -= x)
@@ -171,6 +177,7 @@ namespace Suzuryg.FaceEmo.Detail.View
                 _thumbnailHeightSlider.RegisterValueChangedCallback(OnThumbnailSizeChanged);
             }).AddTo(_disposables);
             _showClipFieldToggle.RegisterValueChangedCallback(OnShowClipFieldValueChanged);
+            _generateAllGestureCombinationAnimationButton.clicked += OnGenerateAllGestureCombinationAnimationButtonClicked;
 
             // Set text
             SetText(_localizationSetting.Table);
@@ -287,6 +294,145 @@ namespace Suzuryg.FaceEmo.Detail.View
                     _expressionEditor.Open(AssetDatabase.LoadAssetAtPath<AnimationClip>(AssetDatabase.GUIDToAssetPath(guid)));
                     _setExistingAnimationUseCase.Handle(string.Empty, new Domain.Animation(guid), modeId, branchIndex, BranchAnimationType.Base);
                 }
+            }
+        }
+        private void OnGenerateAllGestureCombinationAnimationButtonClicked() {
+            if (!EditorUtility.DisplayDialog(DomainConstants.SystemName, "組み合わせ表情の自動生成を行います。\r\nよろしいですか？", "実行", "キャンセル")) return;
+            var modeId = _gestureTableElement.SelectedModeId;
+            var mode = _gestureTableElement.Menu.GetMode(modeId);
+
+
+            var saveDir = EditorUtility.SaveFolderPanel(title: null, defaultName: null, folder: "Assets/");
+            if (string.IsNullOrEmpty(saveDir)) return;
+            saveDir = PathConverter.ToUnityPath(saveDir);
+
+            var handGestures = Enum.GetValues(typeof(HandGesture))
+                .Cast<HandGesture>()
+                .Where(gesture => gesture != HandGesture.Neutral)
+                .ToArray();
+
+            foreach ((var left, var right) in handGestures.SelectMany(left => handGestures.Select(right => (left, right))))
+            {
+                var targetBranch = mode.GetGestureCell(left, right);
+                var conditions = new[]
+                {
+                    new Condition(Hand.Left, left, ComparisonOperator.Equals),
+                    new Condition(Hand.Right, right, ComparisonOperator.Equals)
+                };
+                
+                int branchIndex;
+                
+                var leftCell = mode.GetGestureCell(left, HandGesture.Neutral);
+                var rightCell = mode.GetGestureCell(HandGesture.Neutral, right);
+                
+                if (targetBranch != null && targetBranch.Conditions.Count == 2 && targetBranch.Conditions.Contains(conditions[0]) && targetBranch.Conditions.Contains(conditions[1])) {
+                    // 既に存在するブランチ
+                    var found = false;
+                    for (branchIndex = 0; branchIndex < mode.Branches.Count; branchIndex++) 
+                    {
+                        if (ReferenceEquals(targetBranch, mode.Branches[branchIndex])) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) { throw new FaceEmoException("The target branch was not found."); }
+
+                    var baseAnimationGuid = targetBranch.BaseAnimation.GUID;
+                    var baseAnimationPath = AssetDatabase.GUIDToAssetPath(baseAnimationGuid);
+                    if (!string.IsNullOrEmpty(baseAnimationPath)) {
+                        var nameRegex = new Regex(@".+autogen-.+\.anim");
+                        if (!nameRegex.Match(baseAnimationPath).Success) { 
+                            continue;
+                        }
+                    }
+
+                } else {
+                    // 新規ブランチ
+                    DefaultsProvider defaultsProvider = _defaultProviderGenerator.Generate();
+                    defaultsProvider.BlinkEnabled = leftCell?.BlinkEnabled == false || rightCell?.BlinkEnabled == false ? false : defaultsProvider.BlinkEnabled;
+                    defaultsProvider.EyeTrackingControl = leftCell?.EyeTrackingControl == EyeTrackingControl.Animation || rightCell?.EyeTrackingControl == EyeTrackingControl.Animation ? EyeTrackingControl.Animation : defaultsProvider.EyeTrackingControl;
+                    defaultsProvider.MouthTrackingControl = leftCell?.MouthTrackingControl == MouthTrackingControl.Animation || rightCell?.MouthTrackingControl == MouthTrackingControl.Animation ? MouthTrackingControl.Animation : defaultsProvider.MouthTrackingControl;
+                    defaultsProvider.MouthMorphCancelerEnabled = leftCell?.MouthMorphCancelerEnabled == true || rightCell?.MouthMorphCancelerEnabled == true ? true : defaultsProvider.MouthMorphCancelerEnabled;
+                    _addBranchUseCase.Handle("", _gestureTableElement.SelectedModeId, 
+                        conditions: conditions,
+                        order: 0,
+                        defaultsProvider: defaultsProvider);
+                    branchIndex = 0;
+                    _selectionSynchronizer.ChangeGestureTableViewSelection(left, right);
+                    
+                }
+
+                
+                {
+                    // Base アニメーション
+                    var newClip = new AnimationClip();
+                    var newClipPath = saveDir + "/autogen-" + left + '-' + right + ".anim";
+                    AssetDatabase.CreateAsset(newClip, newClipPath);
+                    var newClipGuid = AssetDatabase.AssetPathToGUID(newClipPath);
+                    if (string.IsNullOrEmpty(newClipGuid)) {
+                        AssetDatabase.Refresh();
+                        newClipGuid = AssetDatabase.AssetPathToGUID(newClipPath);
+                    }
+                    var leftClip = AV3Utility.GetAnimationClipWithName(leftCell?.BaseAnimation).clip;
+                    var rightClip = AV3Utility.GetAnimationClipWithName(rightCell?.BaseAnimation).clip;
+                    AV3Utility.CombineExpressions(leftClip, rightClip, newClip);
+                    _setExistingAnimationUseCase.Handle(string.Empty, new Domain.Animation(newClipGuid), modeId, branchIndex, BranchAnimationType.Base);
+                }
+                bool useLeftTrigger = false;
+                bool useRightTrigger = false;
+                
+                if (leftCell?.LeftHandAnimation != null) {
+                    // Left Trigger アニメーション
+                    var newClip = new AnimationClip();
+                    var newClipPath = saveDir + "/autogen-" + left + '-' + right + "_HandL.anim";
+                    AssetDatabase.CreateAsset(newClip, newClipPath);
+                    var newClipGuid = AssetDatabase.AssetPathToGUID(newClipPath);
+                    if (string.IsNullOrEmpty(newClipGuid)) {
+                        AssetDatabase.Refresh();
+                        newClipGuid = AssetDatabase.AssetPathToGUID(newClipPath);
+                    }
+                    var leftClip = AV3Utility.GetAnimationClipWithName(leftCell?.LeftHandAnimation).clip;
+                    var rightClip = AV3Utility.GetAnimationClipWithName(rightCell?.BaseAnimation).clip;
+                    AV3Utility.CombineExpressions(leftClip, rightClip, newClip);
+                    _setExistingAnimationUseCase.Handle(string.Empty, new Domain.Animation(newClipGuid), modeId, branchIndex, BranchAnimationType.Left);
+                    useLeftTrigger = true;
+                }
+
+                if (rightCell?.RightHandAnimation != null) {
+                    // Right Trigger アニメーション
+                    var newClip = new AnimationClip();
+                    var newClipPath = saveDir + "/autogen-" + left + '-' + right + "_HandR.anim";
+                    AssetDatabase.CreateAsset(newClip, newClipPath);
+                    var newClipGuid = AssetDatabase.AssetPathToGUID(newClipPath);
+                    if (string.IsNullOrEmpty(newClipGuid)) {
+                        AssetDatabase.Refresh();
+                        newClipGuid = AssetDatabase.AssetPathToGUID(newClipPath);
+                    }
+                    var leftClip = AV3Utility.GetAnimationClipWithName(leftCell?.BaseAnimation).clip;
+                    var rightClip = AV3Utility.GetAnimationClipWithName(rightCell?.RightHandAnimation).clip;
+                    AV3Utility.CombineExpressions(leftClip, rightClip, newClip);
+                    _setExistingAnimationUseCase.Handle(string.Empty, new Domain.Animation(newClipGuid), modeId, branchIndex, BranchAnimationType.Right);
+                    useRightTrigger = true;
+                }
+
+                if (leftCell?.LeftHandAnimation != null && rightCell?.RightHandAnimation != null) {
+                    // Both Trigger アニメーション
+                    var newClip = new AnimationClip();
+                    var newClipPath = saveDir + "/autogen-" + left + '-' + right + "_HandBoth.anim";
+                    AssetDatabase.CreateAsset(newClip, newClipPath);
+                    var newClipGuid = AssetDatabase.AssetPathToGUID(newClipPath);
+                    if (string.IsNullOrEmpty(newClipGuid)) {
+                        AssetDatabase.Refresh();
+                        newClipGuid = AssetDatabase.AssetPathToGUID(newClipPath);
+                    }
+
+                    var leftClip = AV3Utility.GetAnimationClipWithName(leftCell?.LeftHandAnimation).clip;
+                    var rightClip = AV3Utility.GetAnimationClipWithName(rightCell?.RightHandAnimation).clip;
+                    AV3Utility.CombineExpressions(leftClip, rightClip, newClip);
+                    _setExistingAnimationUseCase.Handle(string.Empty, new Domain.Animation(newClipGuid), modeId, branchIndex, BranchAnimationType.Both);
+                }
+                
+                _modifyBranchPropertiesUseCase.Handle(string.Empty, modeId, branchIndex, isLeftTriggerUsed:useLeftTrigger, isRightTriggerUsed:useRightTrigger);
             }
         }
 
