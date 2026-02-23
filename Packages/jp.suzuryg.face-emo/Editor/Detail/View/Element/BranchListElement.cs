@@ -62,6 +62,10 @@ namespace Suzuryg.FaceEmo.Detail.View.Element
         public IObservable<(string modeId, int branchIndex, int conditionIndex, Condition condition)> OnModifyConditionButtonClicked => _onModifyConditionButtonClicked.AsObservable();
         public IObservable<(string modeId, int branchIndex, int from, int to)> OnConditionOrderChanged => _onConditionOrderChanged.AsObservable();
         public IObservable<(string modeId, int branchIndex, int conditionIndex)> OnRemoveConditionButtonClicked => _onRemoveConditionButtonClicked.AsObservable();
+        public IObservable<(string modeId, int branchIndex, Parameter parameter)> OnAddParameterButtonClicked => _onAddParameterButtonClicked.AsObservable();
+        public IObservable<(string modeId, int branchIndex, int conditionIndex, Parameter parameter)> OnModifyParameterButtonClicked => this._onModifyParameterButtonClicked.AsObservable();
+        public IObservable<(string modeId, int branchIndex, int from, int to)> OnParameterOrderChanged => _onParameterOrderChanged.AsObservable();
+        public IObservable<(string modeId, int branchIndex, int parameterIndex)> OnRemoveParameterButtonClicked => _onRemoveParameterButtonClicked.AsObservable();
         public IObservable<int> OnBranchSelectionChanged => _onBranchSelectionChanged.AsObservable();
 
         private Subject<(
@@ -83,6 +87,11 @@ namespace Suzuryg.FaceEmo.Detail.View.Element
         private Subject<(string modeId, int branchIndex, int conditionIndex, Condition condition)> _onModifyConditionButtonClicked = new Subject<(string modeId, int branchIndex, int conditionIndex, Condition condition)>();
         private Subject<(string modeId, int branchIndex, int from, int to)> _onConditionOrderChanged = new Subject<(string modeId, int branchIndex, int from, int to)>();
         private Subject<(string modeId, int branchIndex, int conditionIndex)> _onRemoveConditionButtonClicked = new Subject<(string modeId, int branchIndex, int conditionIndex)>();
+        private Subject<(string modeId, int branchIndex, Parameter parameter)> _onAddParameterButtonClicked = new Subject<(string modeId, int branchIndex, Parameter parameter)>();
+
+        private Subject<(string modeId, int branchIndex, int parameterIndex, Parameter parameter)> _onModifyParameterButtonClicked = new Subject<(string modeId, int branchIndex, int parameterIndex, Parameter parameter)>();
+        private Subject<(string modeId, int branchIndex, int from, int to)> _onParameterOrderChanged = new Subject<(string modeId, int branchIndex, int from, int to)>();
+        private Subject<(string modeId, int branchIndex, int parameterIndex)> _onRemoveParameterButtonClicked = new Subject<(string modeId, int branchIndex, int parameterIndex)>();
         private Subject<int> _onBranchSelectionChanged = new Subject<int>();
 
         private AnimationElement _animationElement;
@@ -94,6 +103,7 @@ namespace Suzuryg.FaceEmo.Detail.View.Element
 
         private ReorderableList _reorderableList;
         private List<ConditionListElement> _conditionListElements = new List<ConditionListElement>();
+        private List<ParameterListElement> _parameterListElements = new List<ParameterListElement>();
         private Vector2 _scrollPosition = Vector2.zero;
         private Rect _scrollRect = new Rect();
         private Texture2D _activeBackgroundTexture;
@@ -118,6 +128,7 @@ namespace Suzuryg.FaceEmo.Detail.View.Element
 
         private CompositeDisposable _disposables = new CompositeDisposable();
         private CompositeDisposable _conditionDisposables = new CompositeDisposable();
+        private CompositeDisposable _parameterDisposables = new CompositeDisposable();
 
         public BranchListElement(
             IReadOnlyLocalizationSetting localizationSetting,
@@ -163,6 +174,7 @@ namespace Suzuryg.FaceEmo.Detail.View.Element
         {
             _disposables.Dispose();
             _conditionDisposables.Dispose();
+            _parameterDisposables.Dispose();
         }
 
         private void SetStyle()
@@ -341,6 +353,11 @@ namespace Suzuryg.FaceEmo.Detail.View.Element
             _conditionDisposables.Dispose();
             _conditionDisposables = new CompositeDisposable();
             _conditionListElements.Clear();
+            
+            _parameterDisposables.Dispose();
+            _parameterDisposables = new CompositeDisposable();
+            _parameterListElements.Clear();
+            
             for (int branchIndex = 0; branchIndex < branches.Count; branchIndex++)
             {
                 var branch = branches[branchIndex];
@@ -350,6 +367,13 @@ namespace Suzuryg.FaceEmo.Detail.View.Element
                 conditionElement.OnConditionOrderChanged.Subscribe(x => _onConditionOrderChanged.OnNext((SelectedModeId, x.branchIndex, x.from, x.to))).AddTo(_conditionDisposables);
                 conditionElement.OnRemoveConditionButtonClicked.Subscribe(x => _onRemoveConditionButtonClicked.OnNext((SelectedModeId, x.branchIndex, x.conditionIndex))).AddTo(_conditionDisposables);
                 _conditionListElements.Add(conditionElement);
+                
+                var parameterElement = new ParameterListElement(branchIndex, branch.Parameters, _localizationSetting).AddTo(_parameterDisposables);
+                parameterElement.OnAddParameterButtonClicked.Subscribe(x => this._onAddParameterButtonClicked.OnNext((SelectedModeId, x.branchIndex, x.parameter))).AddTo(_parameterDisposables);
+                parameterElement.OnModifyParameterButtonClicked.Subscribe(x => _onModifyParameterButtonClicked.OnNext((SelectedModeId, x.branchIndex, x.parameterIndex, x.parameter))).AddTo(_conditionDisposables);
+                parameterElement.OnParameterOrderChanged.Subscribe(x => _onParameterOrderChanged.OnNext((SelectedModeId, x.branchIndex, x.from, x.to))).AddTo(_conditionDisposables);
+                parameterElement.OnRemoveParameterButtonClicked.Subscribe(x => _onRemoveParameterButtonClicked.OnNext((SelectedModeId, x.branchIndex, x.parameterIndex))).AddTo(_conditionDisposables);
+                _parameterListElements.Add(parameterElement);
             }
         }
 
@@ -405,7 +429,8 @@ namespace Suzuryg.FaceEmo.Detail.View.Element
             var branch = mode.Branches[index];
             var animationHeight = _animationElement.GetHeight();
 
-            var height = Padding + Math.Max(MinHeight, Math.Max(ConditionListElement.GetMinHeight(), animationHeight)) + Padding;
+            var height = Padding + Math.Max(MinHeight, Math.Max(ConditionListElement.GetMinHeight(), animationHeight)) + 
+                         ParameterListElement.GetMinHeight() + Padding;
 
             var isTriggerUsed = (branch.CanLeftTriggerUsed && branch.IsLeftTriggerUsed) || (branch.CanRightTriggerUsed && branch.IsRightTriggerUsed);
             if (isTriggerUsed)
@@ -432,6 +457,7 @@ namespace Suzuryg.FaceEmo.Detail.View.Element
 
             var branch = mode.Branches[index];
             var condition = _conditionListElements[index];
+            var parameter = _parameterListElements[index];
 
             var xBegin = rect.x + Padding;
             var yBegin = rect.y + Padding;
@@ -688,6 +714,20 @@ namespace Suzuryg.FaceEmo.Detail.View.Element
                         leftCombine: branch.LeftHandAnimation, rightCombine: branch.RightHandAnimation);
                     GUI.Label(new Rect(xCurrent, yCurrent + _animationElement.GetHeight(), _animationElement.GetWidth(), EditorGUIUtility.singleLineHeight), _bothTriggersAnimationText, _centerStyle);
                 }
+            }
+            
+            // Parameter
+            if (!IsSimplified)
+            {
+                var parameterHeight = Math.Max(ParameterListElement.GetMinHeight(), _animationElement.GetHeight());
+                xCurrent = xBegin;
+                yCurrent += VerticalMargin;
+                if ((branch.CanLeftTriggerUsed && branch.IsLeftTriggerUsed) || (branch.CanRightTriggerUsed && branch.IsRightTriggerUsed))
+                {
+                    yCurrent += _animationElement.GetHeight() + EditorGUIUtility.singleLineHeight;
+                }
+                parameterHeight -= EditorGUIUtility.singleLineHeight * 2 + VerticalMargin;
+                parameter.OnGUI(new Rect(xCurrent, yCurrent, ParameterListElement.GetWidth(), parameterHeight));
             }
         }
 

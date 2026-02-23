@@ -34,6 +34,11 @@ namespace Suzuryg.FaceEmo.Detail.View
         private IChangeConditionOrderUseCase _changeConditionOrderUseCase;
         private IModifyConditionUseCase _modifyConditionUseCase;
         private IRemoveConditionUseCase _removeConditionUseCase;
+        
+        private IAddParameterUseCase _addParameterUseCase;
+        private IChangeParameterOrderUseCase _changeParameterOrderUseCase;
+        private IModifyParameterUseCase _modifyParameterUseCase;
+        private IRemoveParameterUseCase _removeParameterUseCase;
 
         private IAddBranchPresenter _addBranchPresenter;
 
@@ -75,7 +80,12 @@ namespace Suzuryg.FaceEmo.Detail.View
             IChangeConditionOrderUseCase changeConditionOrderUseCase,
             IModifyConditionUseCase modifyConditionUseCase,
             IRemoveConditionUseCase removeConditionUseCase,
-
+            
+            IAddParameterUseCase  addParameterUseCase,
+            IChangeParameterOrderUseCase changeParameterOrderUseCase,
+            IModifyParameterUseCase modifyParameterUseCase,
+            IRemoveParameterUseCase removeParameterUseCase,
+            
             IAddBranchPresenter addBranchPresenter,
 
             IReadOnlyLocalizationSetting localizationSetting,
@@ -101,6 +111,10 @@ namespace Suzuryg.FaceEmo.Detail.View
             _changeConditionOrderUseCase = changeConditionOrderUseCase;
             _modifyConditionUseCase = modifyConditionUseCase;
             _removeConditionUseCase = removeConditionUseCase;
+            _addParameterUseCase = addParameterUseCase;
+            _changeParameterOrderUseCase = changeParameterOrderUseCase;
+            _modifyParameterUseCase = modifyParameterUseCase;
+            _removeParameterUseCase = removeParameterUseCase;
 
             // Presenters
             _addBranchPresenter = addBranchPresenter;
@@ -127,7 +141,15 @@ namespace Suzuryg.FaceEmo.Detail.View
             _branchListElement.OnModifyConditionButtonClicked.Synchronize().Subscribe(OnModifyConditionButtonClicked).AddTo(_disposables);
             _branchListElement.OnConditionOrderChanged.Synchronize().Subscribe(OnConditionOrderChanged).AddTo(_disposables);
             _branchListElement.OnRemoveConditionButtonClicked.Synchronize().Subscribe(OnRemoveConditionButtonClicked).AddTo(_disposables);
+            
+            _branchListElement.OnAddParameterButtonClicked.Synchronize().Subscribe(this.OnAddParameterButtonClicked).AddTo(_disposables);
+            _branchListElement.OnModifyParameterButtonClicked.Synchronize().Subscribe(this.OnModifyParameterButtonClicked).AddTo(_disposables);
+            _branchListElement.OnParameterOrderChanged.Synchronize().Subscribe(this.OnParameterOrderChanged).AddTo(_disposables);
+            _branchListElement.OnRemoveParameterButtonClicked.Synchronize().Subscribe(this.OnRemoveParameterButtonClicked).AddTo(_disposables);
+            
             _branchListElement.OnBranchSelectionChanged.Synchronize().Subscribe(OnBranchListViewSelectionChanged).AddTo(_disposables);
+            
+            
 
             // Localization table changed event handler
             _localizationSetting.OnTableChanged.Synchronize().Subscribe(SetText).AddTo(_disposables);
@@ -427,6 +449,26 @@ namespace Suzuryg.FaceEmo.Detail.View
         private void OnRemoveConditionButtonClicked((string modeId, int branchIndex, int conditionIndex) args)
         {
             _removeConditionUseCase.Handle("", args.modeId, args.branchIndex, args.conditionIndex);
+        }
+        
+        private void OnAddParameterButtonClicked((string modeId, int branchIndex, Parameter parameter) args)
+        {
+            _addParameterUseCase.Handle("", args.modeId, args.branchIndex, args.parameter);
+        }
+
+        private void OnModifyParameterButtonClicked((string modeId, int branchIndex, int parameterIndex, Parameter parameter) args)
+        {
+            _modifyParameterUseCase.Handle("", args.modeId, args.branchIndex, args.parameterIndex, args.parameter);
+        }
+
+        private void OnParameterOrderChanged((string modeId, int branchIndex, int from, int to) args)
+        {
+            _changeParameterOrderUseCase.Handle("", args.modeId, args.branchIndex, args.from, args.to);
+        }
+
+        private void OnRemoveParameterButtonClicked((string modeId, int branchIndex, int parameterIndex) args)
+        {
+            _removeParameterUseCase.Handle("", args.modeId, args.branchIndex, args.parameterIndex);
         }
 
         public void OnAnimationChanged((

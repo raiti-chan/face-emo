@@ -19,6 +19,7 @@ namespace Suzuryg.FaceEmo.Components.Data
         public SerializableAnimation BothHandsAnimation;
 
         public List<SerializableCondition> Conditions;
+        public List<SerializableParameter> Parameters;
 
         public void Save(IBranch branch, bool isAsset)
         {
@@ -87,6 +88,20 @@ namespace Suzuryg.FaceEmo.Components.Data
                 serializableCondition.name = "Condition";
                 Conditions.Add(serializableCondition);
             }
+            
+            Parameters = new List<SerializableParameter>();
+            foreach (var parameter in branch.Parameters) 
+            {
+                var serializableParameter = CreateInstance<SerializableParameter>();
+#if UNITY_EDITOR
+                if (isAsset) { UnityEditor.AssetDatabase.AddObjectToAsset(serializableParameter, this); }
+#else
+                if (isAsset) { throw new FaceEmoException("SerializableMenu cannot be made into an asset in Play mode."); }
+#endif
+                serializableParameter.Save(parameter);
+                serializableParameter.name = "Parameter";
+                Parameters.Add(serializableParameter);
+            }
         }
 
         public void Load(Domain.Menu menu, string id, int index)
@@ -108,6 +123,12 @@ namespace Suzuryg.FaceEmo.Components.Data
             {
                 var condition = Conditions[i].Load();
                 menu.AddCondition(id, index, condition);
+            }
+
+            for (int i = 0; i < Parameters.Count; i++)
+            {
+                var parameter = Parameters[i].Load();
+                menu.AddParameter(id, index, parameter);
             }
         }
     }

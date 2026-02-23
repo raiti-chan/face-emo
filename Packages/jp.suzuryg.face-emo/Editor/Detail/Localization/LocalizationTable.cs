@@ -115,6 +115,7 @@ namespace Suzuryg.FaceEmo.Detail.Localization
         public string BranchListView_EmptyBranch = "You can add an expression by pressing the button at the top of the view.";
         public string BranchListView_EmptyCondition = "Press the + button to add a condition.";
         public string BranchListView_Condition = "Conditions";
+        public string BranchListView_Parameter = "Parameter";
         public string BranchListView_Left = "LeftHand";
         public string BranchListView_Right = "RightHand";
         public string BranchListView_OneSide = "OneHand";

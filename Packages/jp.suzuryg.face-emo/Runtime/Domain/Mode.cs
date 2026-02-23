@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace Suzuryg.FaceEmo.Domain
 {
@@ -78,9 +79,9 @@ namespace Suzuryg.FaceEmo.Domain
             throw new FaceEmoException("The parent does not have this mode.");
         }
         
-        public void AddBranch(IEnumerable<Condition> conditions = null, DefaultsProvider defaultsProvider = null)
+        public void AddBranch(IEnumerable<Condition> conditions = null, IEnumerable<Parameter> parameters = null, DefaultsProvider defaultsProvider = null)
         {
-            _branches.Add(new Branch(conditions));
+            _branches.Add(new Branch(conditions, parameters));
 
             if (defaultsProvider is DefaultsProvider)
             {
@@ -160,7 +161,31 @@ namespace Suzuryg.FaceEmo.Domain
 
         public void ChangeConditionOrder(int branchIndex, int from, int to)
         {
-            _branches[branchIndex].ChangeBranchOrder(from, to);
+            _branches[branchIndex].ChangeConditionOrder(from, to);
+        }
+        
+        public void AddParameter(int branchIndex, Parameter parameter)
+        {
+            _branches[branchIndex].AddParameter(parameter);
+            UpdateTable();
+        }
+
+        public void ModifyParameter(int branchIndex, int parameterIndex, Parameter parameter)
+        {
+            _branches[branchIndex].ModifyParameter(parameterIndex, parameter);
+            UpdateTable();
+        }
+
+        public void RemoveParameter(int branchIndex, int parameterIndex)
+        {
+            Debug.Log($"Remove : {branchIndex}, {parameterIndex}");
+            _branches[branchIndex].RemoveParameter(parameterIndex);
+            UpdateTable();
+        }
+
+        public void ChangeParameterOrder(int branchIndex, int from, int to)
+        {
+            _branches[branchIndex].ChangeParameterOrder(from, to);
         }
 
         public void SetAnimation(Animation animation, int? branchIndex, BranchAnimationType? branchAnimationType)

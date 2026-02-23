@@ -456,10 +456,10 @@ namespace Suzuryg.FaceEmo.Domain
 
         public bool CanAddBranchTo(string destination) => ContainsMode(destination);
 
-        public void AddBranch(string destination, IEnumerable<Condition> conditions = null, DefaultsProvider defaultsProvider = null)
+        public void AddBranch(string destination, IEnumerable<Condition> conditions = null, IEnumerable<Parameter> parameters = null, DefaultsProvider defaultsProvider = null)
         {
             NullChecker.Check(destination);
-            _modes[destination].AddBranch(conditions, defaultsProvider);
+            _modes[destination].AddBranch(conditions, parameters, defaultsProvider);
         }
 
         public bool ContainsBranch(string modeId, int index) => ContainsMode(modeId) && index >= 0 && index < _modes[modeId].Branches.Count;
@@ -502,6 +502,24 @@ namespace Suzuryg.FaceEmo.Domain
         public bool CanRemoveCondition(string modeId, int branchIndex, int conditionIndex) => ContainsCondition(modeId, branchIndex, conditionIndex);
 
         public void RemoveCondition(string modeId, int branchIndex, int conditionIndex) => _modes[modeId].RemoveCondition(branchIndex, conditionIndex);
+
+        public bool CanAddParameterTo(string modeId, int branchIndex) => ContainsBranch(modeId, branchIndex);
+
+        public void AddParameter(string modeId, int branchIndex, Parameter parameter) => _modes[modeId].AddParameter(branchIndex, parameter);
+
+        public bool ContainsParameter(string modeId, int branchIndex, int parameterIndex) => ContainsBranch(modeId, branchIndex) && parameterIndex >= 0 && parameterIndex < _modes[modeId].Branches[branchIndex].Parameters.Count;
+
+        public bool CanModifyParameter(string modeId, int branchIndex, int parameterIndex) => ContainsParameter(modeId, branchIndex, parameterIndex);
+
+        public void ModifyParameter(string modeId, int branchIndex, int parameterIndex, Parameter parameter) => _modes[modeId].ModifyParameter(branchIndex, parameterIndex, parameter);
+
+        public bool CanChangeParameterOrder(string modeId, int branchIndex, int from) => ContainsParameter(modeId, branchIndex, from);
+
+        public void ChangeParameterOrder(string modeId, int branchIndex, int from, int to) => _modes[modeId].ChangeParameterOrder(branchIndex, from, to);
+
+        public bool CanRemoveParameter(string modeId, int branchIndex, int parameterIndex) => ContainsParameter(modeId, branchIndex, parameterIndex);
+
+        public void RemoveParameter(string modeId, int branchIndex, int parameterIndex) => _modes[modeId].RemoveParameter(branchIndex, parameterIndex);
 
         public bool CanSetAnimationTo(string modeId, int? branchIndex, BranchAnimationType? branchAnimationType)
         {

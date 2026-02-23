@@ -123,6 +123,12 @@ namespace Suzuryg.FaceEmo.AppMain
             Container.Bind<IChangeConditionOrderUseCase>().To<ChangeConditionOrderUseCase>().AsTransient();
             Container.Bind<IModifyConditionUseCase>().To<ModifyConditionUseCase>().AsTransient();
             Container.Bind<IRemoveConditionUseCase>().To<RemoveConditionUseCase>().AsTransient();
+            
+            Container.Bind<IAddParameterUseCase>().To<AddParameterUseCase>().AsTransient();
+            Container.Bind<IChangeParameterOrderUseCase>().To<ChangeParameterOrderUseCase>().AsTransient();
+            Container.Bind<IModifyParameterUseCase>().To<ModifyParameterUseCase>().AsTransient();
+            Container.Bind<IRemoveParameterUseCase>().To<RemoveParameterUseCase>().AsTransient();
+            
             Container.Bind<ISetExistingAnimationUseCase>().To<SetExistingAnimationUseCase>().AsTransient();
 
             Container.Bind<ICreateMenuPresenter>().To<CreateMenuPresenter>().AsSingle();
@@ -144,6 +150,12 @@ namespace Suzuryg.FaceEmo.AppMain
             Container.Bind<IChangeConditionOrderPresenter>().To<ChangeConditionOrderPresenter>().AsSingle();
             Container.Bind<IModifyConditionPresenter>().To<ModifyConditionPresenter>().AsSingle();
             Container.Bind<IRemoveConditionPresenter>().To<RemoveConditionPresenter>().AsSingle();
+            
+            Container.Bind<IAddParameterPresenter>().To<AddParameterPresenter>().AsSingle();
+            Container.Bind<IChangeParameterOrderPresenter>().To<ChangeParameterOrderPresenter>().AsSingle();
+            Container.Bind<IModifyParameterPresenter>().To<ModifyParameterPresenter>().AsSingle();
+            Container.Bind<IRemoveParameterPresenter>().To<RemoveParameterPresenter>().AsSingle();
+            
             Container.Bind<ISetExistingAnimationPresenter>().To<SetExistingAnimationPresenter>().AsSingle();
 
             Container.BindInterfacesTo<SubWindowManager>().AsSingle();

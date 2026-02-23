@@ -84,7 +84,7 @@ namespace Suzuryg.FaceEmo.UseCase.ModifyMenu.ModifyMode
 
                 foreach (var conditions in sortedBranches)
                 {
-                    menu.AddBranch(modeId, conditions, defaultsProvider);
+                    menu.AddBranch(modeId, conditions, null, defaultsProvider);
 
                     if (specifyOrder)
                     {

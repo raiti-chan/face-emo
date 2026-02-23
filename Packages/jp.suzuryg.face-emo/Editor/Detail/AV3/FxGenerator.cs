@@ -407,6 +407,21 @@ namespace Suzuryg.FaceEmo.Detail.AV3
                             .Drives(layer.BoolParameter(AV3Constants.ParamName_CN_MOUTH_MORPH_CANCEL_ENABLE), branch.MouthMorphCancelerEnabled && branch.MouthTrackingControl == MouthTrackingControl.Tracking)
                             .TrackingSets(TrackingElement.Eyes, AV3Utility.ConvertEyeTrackingType(branch.EyeTrackingControl))
                             .TrackingSets(TrackingElement.Mouth, AV3Utility.ConvertMouthTrackingType(branch.MouthTrackingControl));
+                        foreach (Parameter branchParameter in branch.Parameters) {
+                            switch (branchParameter.ParameterType) {
+                                case ParameterType.Bool:
+                                    emoteState.Drives(layer.BoolParameter(branchParameter.ParameterName), branchParameter.Value > 0.1);
+                                    break;
+                                case ParameterType.Int:
+                                    emoteState.Drives(layer.IntParameter(branchParameter.ParameterName), (int)branchParameter.Value);
+                                    break;
+                                case ParameterType.Float:
+                                    emoteState.Drives(layer.FloatParameter(branchParameter.ParameterName), branchParameter.Value);
+                                    break;
+                                default:
+                                    throw new ArgumentOutOfRangeException();
+                            }
+                        }
                     }
 
                     emoteState.TransitionsFromEntry()

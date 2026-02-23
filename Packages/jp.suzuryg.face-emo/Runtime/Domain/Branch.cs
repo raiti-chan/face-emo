@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace Suzuryg.FaceEmo.Domain
 {
@@ -14,6 +15,7 @@ namespace Suzuryg.FaceEmo.Domain
         bool IsRightTriggerUsed { get; }
 
         IReadOnlyList<Condition> Conditions { get; }
+        IReadOnlyList<Parameter> Parameters { get; }
         bool IsReachable { get; }
         bool CanLeftTriggerUsed { get; }
         bool CanRightTriggerUsed { get; }
@@ -34,6 +36,7 @@ namespace Suzuryg.FaceEmo.Domain
         public bool IsRightTriggerUsed { get; set; } = false;
 
         public IReadOnlyList<Condition> Conditions => _conditions;
+        public IReadOnlyList<Parameter> Parameters => _parameters;
         public bool IsReachable { get; set; } = false;
         public bool CanLeftTriggerUsed { get; set; } = false;
         public bool CanRightTriggerUsed { get; set; } = false;
@@ -44,12 +47,18 @@ namespace Suzuryg.FaceEmo.Domain
         public Animation BothHandsAnimation { get; private set; }
 
         private List<Condition> _conditions = new List<Condition>();
+        private List<Parameter> _parameters = new List<Parameter>();
 
-        public Branch(IEnumerable<Condition> conditions = null)
+        public Branch(IEnumerable<Condition> conditions = null, IEnumerable<Parameter> parameters = null)
         {
             if (conditions is IEnumerable<Condition>)
             {
                 _conditions = conditions.ToList();
+            }
+
+            if (parameters is IEnumerable<Parameter>)
+            {
+                _parameters = parameters.ToList();
             }
         }
 
@@ -67,8 +76,8 @@ namespace Suzuryg.FaceEmo.Domain
         {
             _conditions.RemoveAt(index);
         }
-
-        public void ChangeBranchOrder(int from, int to)
+        
+        public void ChangeConditionOrder(int from, int to)
         {
             var condition = _conditions[from];
             _conditions.RemoveAt(from);
@@ -84,6 +93,40 @@ namespace Suzuryg.FaceEmo.Domain
             else
             {
                 _conditions.Insert(to, condition);
+            }
+        }
+        
+        public void AddParameter(Parameter parameter)
+        {
+            _parameters.Add(parameter);
+        }
+
+        public void ModifyParameter(int index, Parameter parameter)
+        {
+            _parameters[index] = parameter;
+        }
+
+        public void RemoveParameter(int index)
+        {
+            _parameters.RemoveAt(index);
+        }
+
+        public void ChangeParameterOrder(int from, int to)
+        {
+            var parameter = _parameters[from];
+            _conditions.RemoveAt(from);
+
+            if (to < 0)
+            {
+                _parameters.Insert(0, parameter);
+            }
+            else if (to > _parameters.Count)
+            {
+                _parameters.Add(parameter);
+            }
+            else
+            {
+                _parameters.Insert(to, parameter);
             }
         }
 

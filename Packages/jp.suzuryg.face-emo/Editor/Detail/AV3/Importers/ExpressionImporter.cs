@@ -1,4 +1,5 @@
-﻿using Suzuryg.FaceEmo.Components.Settings;
+﻿using System;
+using Suzuryg.FaceEmo.Components.Settings;
 using Suzuryg.FaceEmo.Detail.Localization;
 using Suzuryg.FaceEmo.Detail.View.Element;
 using Suzuryg.FaceEmo.Domain;
@@ -12,6 +13,7 @@ using VRC.Dynamics;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Dynamics.Contact.Components;
 using VRC.SDKBase;
+using Object = UnityEngine.Object;
 
 namespace Suzuryg.FaceEmo.Detail.AV3.Importers
 {
@@ -75,7 +77,7 @@ namespace Suzuryg.FaceEmo.Detail.AV3.Importers
             var cacLayer = GetCacLayer(fx);
             if (cacLayer != null)
             {
-                return ImportCac(cacLayer);
+                return ImportCac(cacLayer, fx);
             }
             else
             {
@@ -101,7 +103,7 @@ namespace Suzuryg.FaceEmo.Detail.AV3.Importers
             var layers = new List<List<IBranch>>();
             foreach (var layer in fx.layers)
             {
-                var branches = GetBranches(layer.stateMachine);
+                var branches = GetBranches(layer.stateMachine, fx);
                 if (branches.Any())
                 {
                     layers.Add(branches);
@@ -188,23 +190,23 @@ namespace Suzuryg.FaceEmo.Detail.AV3.Importers
             }
         }
 
-        private List<IBranch> GetBranches(AnimatorStateMachine stateMachine)
+        private List<IBranch> GetBranches(AnimatorStateMachine stateMachine, AnimatorController fx)
         {
             var branches = new List<IBranch>();
             if (stateMachine == null) { return branches; }
 
             var defaultTransition = new AnimatorTransition();
             defaultTransition.destinationState = stateMachine.defaultState;
-            branches.Add(GetBranch(defaultTransition));
+            branches.Add(GetBranch(defaultTransition, fx));
 
             foreach (var transition in stateMachine.entryTransitions)
             {
-                branches.Add(GetBranch(transition));
+                branches.Add(GetBranch(transition, fx));
             }
 
             foreach (var transition in stateMachine.anyStateTransitions)
             {
-                branches.Add(GetBranch(transition));
+                branches.Add(GetBranch(transition, fx));
             }
 
             foreach (var state in stateMachine.states)
@@ -213,13 +215,13 @@ namespace Suzuryg.FaceEmo.Detail.AV3.Importers
 
                 foreach (var transition in state.state.transitions)
                 {
-                    branches.Add(GetBranch(transition));
+                    branches.Add(GetBranch(transition, fx));
                 }
             }
 
             foreach (var subMachine in stateMachine.stateMachines)
             {
-                branches = branches.Concat(GetBranches(subMachine.stateMachine)).ToList();
+                branches = branches.Concat(GetBranches(subMachine.stateMachine, fx)).ToList();
             }
 
             return branches
@@ -229,7 +231,7 @@ namespace Suzuryg.FaceEmo.Detail.AV3.Importers
                 .ToList();
         }
 
-        private IBranch GetBranch(AnimatorTransitionBase transition)
+        private IBranch GetBranch(AnimatorTransitionBase transition, AnimatorController fx)
         {
             if (transition != null &&
                 !transition.mute &&
@@ -254,6 +256,31 @@ namespace Suzuryg.FaceEmo.Detail.AV3.Importers
                     else { continue; }
 
                     branch.AddCondition(new Condition(hand, handGesture, comparisonOperator));
+                }
+                
+                // parameter
+                var state = transition.destinationState;
+                var parameterTypeDictionary = fx.parameters.ToDictionary(parameter => parameter.name, parameter => parameter.type);
+                foreach (StateMachineBehaviour stateMachineBehaviour in state.behaviours)
+                {
+                    if (stateMachineBehaviour is not VRC_AvatarParameterDriver driver || driver == null) continue;
+                    foreach (VRC_AvatarParameterDriver.Parameter driverParameter in driver.parameters.Where(driverParameter => driverParameter.type == VRC_AvatarParameterDriver.ChangeType.Set))
+                    {
+                        switch (driverParameter.name) {
+                            case "CN_BLINK_ENABLE":
+                            case "CN_MOUTH_MORPH_CANCEL_ENABLE":
+                                continue;
+                        }
+                        if (!parameterTypeDictionary.TryGetValue(driverParameter.name, out var parameterType)) continue;
+                        var type = parameterType switch {
+                            AnimatorControllerParameterType.Bool => ParameterType.Bool,
+                            AnimatorControllerParameterType.Float => ParameterType.Float,
+                            AnimatorControllerParameterType.Int => ParameterType.Int,
+                            AnimatorControllerParameterType.Trigger => ParameterType.Bool,
+                            _ => throw new ArgumentOutOfRangeException()
+                        };
+                        branch.AddParameter(new Parameter(driverParameter.name, type, driverParameter.value));
+                    }
                 }
 
                 // avoid filling neutral row or col
@@ -491,7 +518,7 @@ namespace Suzuryg.FaceEmo.Detail.AV3.Importers
 
         private void AddBranch(string modeId, IBranch branch)
         {
-            _menu.AddBranch(modeId, conditions: branch.Conditions);
+            _menu.AddBranch(modeId, conditions: branch.Conditions, parameters: branch.Parameters);
             var branchIndex = _menu.GetMode(modeId).Branches.Count - 1;
 
             _menu.ModifyBranchProperties(modeId, branchIndex,
@@ -523,7 +550,7 @@ namespace Suzuryg.FaceEmo.Detail.AV3.Importers
             return null;
         }
 
-        private List<IMode> ImportCac(AnimatorControllerLayer cacLayer)
+        private List<IMode> ImportCac(AnimatorControllerLayer cacLayer, AnimatorController fx)
         {
             var transitions = cacLayer.stateMachine.stateMachines
                 .SelectMany(x => x.stateMachine.entryTransitions)
@@ -557,6 +584,31 @@ namespace Suzuryg.FaceEmo.Detail.AV3.Importers
 
                     // condition
                     branch.AddCondition(EmoteIndexToCondition(item.emoteIndex));
+                    
+                    // parameter
+                    var state = item.transition.destinationState;
+                    var parameterTypeDictionary = fx.parameters.ToDictionary(parameter => parameter.name, parameter => parameter.type);
+                    foreach (StateMachineBehaviour stateMachineBehaviour in state.behaviours)
+                    {
+                        if (stateMachineBehaviour is not VRC_AvatarParameterDriver driver || driver == null) continue;
+                        foreach (VRC_AvatarParameterDriver.Parameter driverParameter in driver.parameters.Where(driverParameter => driverParameter.type == VRC_AvatarParameterDriver.ChangeType.Set))
+                        {
+                            switch (driverParameter.name) {
+                                case "CN_BLINK_ENABLE":
+                                case "CN_MOUTH_MORPH_CANCEL_ENABLE":
+                                    continue;
+                            }
+                            if (!parameterTypeDictionary.TryGetValue(driverParameter.name, out var parameterType)) continue;
+                            var type = parameterType switch {
+                                AnimatorControllerParameterType.Bool => ParameterType.Bool,
+                                AnimatorControllerParameterType.Float => ParameterType.Float,
+                                AnimatorControllerParameterType.Int => ParameterType.Int,
+                                AnimatorControllerParameterType.Trigger => ParameterType.Bool,
+                                _ => throw new ArgumentOutOfRangeException()
+                            };
+                            branch.AddParameter(new Parameter(driverParameter.name, type, driverParameter.value));
+                        }
+                    }
 
                     // tracking
                     foreach (var behaviour in item.transition.destinationState.behaviours)
